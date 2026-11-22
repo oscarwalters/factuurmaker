@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Factuurmaker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: invulformulier links, live A4-factuur rechts; op de telefoon onder elkaar. De factuur zelf is altijd wit papier. */
+:root {
+  --bg: #eef1ef;
+  --surface: #ffffff;
+  --fg: #1c2421;
+  --muted: #5f6b66;
+  --line: #d5dbd8;
+  --accent: #1f5f4a;
+  --accent-fg: #ffffff;
+  --accent-soft: #e1ede8;
+  --danger: #a33a2c;
+  --focus: #2f8a6c;
+  --paper: #ffffff;
+  --paper-ink: #1c2421;
+  --paper-muted: #6b7671;
+  --paper-line: #dde2df;
+  --paper-accent: #1f5f4a;
+  --font-ui: "Instrument Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a18; --surface: #1d2522; --fg: #e4ebe8; --muted: #9aa8a2; --line: #33403b;
+    --accent: #5fbf9a; --accent-fg: #0e1a15; --accent-soft: #23352e; --danger: #f08a7a; --focus: #7fd6b3;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a18; --surface: #1d2522; --fg: #e4ebe8; --muted: #9aa8a2; --line: #33403b;
+  --accent: #5fbf9a; --accent-fg: #0e1a15; --accent-soft: #23352e; --danger: #f08a7a; --focus: #7fd6b3;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.top h1 { font-size: 1.5rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.top p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.layout { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* Formulier */
+.form { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card h2, details.card summary { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--muted); margin: 0; }
+details.card summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+details.card summary::-webkit-details-marker { display: none; }
+details.card summary::after { content: "Wijzigen"; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--accent); font-size: 0.85rem; }
+details.card[open] summary::after { content: "Inklappen"; }
+details.card[open] > .fields { margin-top: 12px; }
+.saved-note { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.fields { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.fields .full { grid-column: 1 / -1; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 500; min-width: 0; }
+label .hint { font-weight: 400; color: var(--muted); }
+input, textarea, select {
+  font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px;
+  padding: 9px 10px; width: 100%; min-width: 0;
+}
+textarea { resize: vertical; min-height: 64px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+.lines { display: flex; flex-direction: column; gap: 10px; }
+.line { display: grid; grid-template-columns: 84px minmax(0, 1fr) 36px; gap: 8px; align-items: end; padding-bottom: 10px; border-bottom: 1px dashed var(--line); }
+.line .desc { grid-column: 1 / -1; }
+.line label span.lbl { font-size: 0.78rem; color: var(--muted); font-weight: 500; }
+.line .total { font-family: var(--font-num); font-size: 0.9rem; padding-bottom: 10px; text-align: right; color: var(--muted); }
+.icon-btn { width: 36px; height: 40px; border-radius: 7px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font-size: 1.1rem; line-height: 1; }
+.icon-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+button { font: inherit; cursor: pointer; }
+.btn { border-radius: 8px; padding: 11px 16px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+.btn:hover { border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { background: transparent; border-style: dashed; color: var(--accent); font-weight: 500; }
+.btn-warn { border-color: var(--danger); color: var(--danger); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.actions .sum { margin-left: auto; text-align: right; }
+.actions .sum small { display: block; color: var(--muted); font-size: 0.78rem; }
+.actions .sum strong { font-family: var(--font-num); font-size: 1.15rem; }
+.help { background: var(--accent-soft); border-radius: 10px; padding: 14px 16px; font-size: 0.9rem; display: flex; flex-direction: column; gap: 6px; }
+.help p { margin: 0; }
+.help kbd { font-family: var(--font-num); font-size: 0.85em; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.logo-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.logo-row img { max-height: 40px; max-width: 120px; object-fit: contain; background: #fff; border-radius: 4px; padding: 2px; }
+.file-input { font-size: 0.85rem; padding: 6px; }
+
+/* Factuur (papier) */
+.preview { min-width: 0; position: sticky; top: max(16px, env(safe-area-inset-top, 0px)); }
+@media (max-width: 900px) { .preview { position: static; } }
+.preview-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+.paper {
+  background: var(--paper); color: var(--paper-ink); border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 8px 28px rgba(20,40,32,.12);
+  padding: clamp(20px, 5vw, 48px); font-size: 13.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px; min-height: 600px;
+  max-width: 100%; overflow-wrap: anywhere;
+}
+.paper .muted { color: var(--paper-muted); }
+.ph { color: #b3bbb7; font-style: italic; }
+.inv-head { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+.inv-head img { max-height: 64px; max-width: 200px; object-fit: contain; display: block; margin-bottom: 10px; }
+.inv-from { white-space: pre-line; }
+.inv-from strong { font-size: 1.05rem; display: block; }
+.inv-title { text-align: right; }
+.inv-title h2 { margin: 0; font-size: 1.9rem; letter-spacing: 0.04em; color: var(--paper-accent); font-weight: 700; }
+.inv-meta { display: grid; grid-template-columns: auto auto; gap: 2px 14px; justify-content: end; margin-top: 8px; }
+.inv-meta dt { color: var(--paper-muted); }
+.inv-meta dd { margin: 0; font-family: var(--font-num); text-align: right; }
+.inv-to { white-space: pre-line; }
+.inv-to .lbl, .inv-pay .lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--paper-muted); display: block; margin-bottom: 4px; }
+.table-scroll { overflow-x: auto; }
+table.items { width: 100%; border-collapse: collapse; }
+table.items th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--paper-muted); font-weight: 600; border-bottom: 1.5px solid var(--paper-ink); padding: 6px 6px 6px 0; }
+table.items td { padding: 9px 6px 9px 0; border-bottom: 1px solid var(--paper-line); vertical-align: top; }
+table.items .r { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.items th.r { font-family: var(--font-ui); }
+.totals { margin-left: auto; width: min(100%, 300px); display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; }
+.totals dt { color: var(--paper-muted); }
+.totals dd { margin: 0; text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.totals .grand { border-top: 1.5px solid var(--paper-ink); padding-top: 8px; margin-top: 4px; font-weight: 600; color: var(--paper-ink); font-size: 1.05rem; }
+.inv-pay { border-top: 1px solid var(--paper-line); padding-top: 16px; display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+.inv-pay p { margin: 0; }
+.inv-ids { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.8rem; color: var(--paper-muted); }
+.inv-ids span b { font-weight: 500; color: var(--paper-ink); font-family: var(--font-num); }
+.inv-note { white-space: pre-line; }
+
+@media (prefers-reduced-motion: no-preference) { .btn, .icon-btn { transition: border-color .15s, filter .15s, color .15s; } }
+
+/* Printen / opslaan als PDF: alleen de factuur */
+@page { size: A4; margin: 14mm; }
+@media print {
+  :root { --bg: #fff; color-scheme: light; }
+  body { background: #fff !important; padding: 0 !important; }
+  .no-print { display: none !important; }
+  .wrap, .layout { display: block; max-width: none; }
+  .preview { position: static; }
+  .paper { box-shadow: none; border-radius: 0; padding: 0; min-height: 0; font-size: 12pt; }
+  .ph { color: transparent; }
+  table.items tr { break-inside: avoid; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top no-print">
+    <h1>Factuurmaker</h1>
+    <p>Vul in, controleer de factuur en sla hem op als PDF. Alles blijft in je eigen browser.</p>
+  </header>
+
+  <main class="layout">
+    <section class="form no-print" aria-label="Factuurgegevens invullen">
+
+      <details class="card" id="companyCard">
+        <summary id="companySummary">Jouw bedrijfsgegevens</summary>
+        <div class="fields">
+          <p class="saved-note full">Vul je dit één keer in. Het wordt onthouden in deze browser, op dit apparaat.</p>
+          <label class="full">Bedrijfsnaam<input id="s_name" autocomplete="organization" placeholder="Jansen Klusbedrijf"></label>
+          <label class="full">Adres<textarea id="s_addr" rows="2" placeholder="Dorpsstraat 12&#10;1234 AB Utrecht"></textarea></label>
+          <label>KvK-nummer<input id="s_kvk" class="num" inputmode="numeric" placeholder="12345678"></label>
+          <label>Btw-nummer<input id="s_btw" class="num" placeholder="NL001234567B01"></label>
+          <label class="full">IBAN<input id="s_iban" class="num" placeholder="NL91 ABNA 0417 1643 00"></label>
+          <label>E-mail <span class="hint">(optioneel)</span><input id="s_mail" type="email" placeholder="info@jansen.nl"></label>
+          <label>Telefoon <span class="hint">(optioneel)</span><input id="s_tel" type="tel" placeholder="06 12345678"></label>
+          <div class="full">
+            <label for="s_logo">Logo <span class="hint">(optioneel, png of jpg)</span></label>
+            <div class="logo-row">
+              <img id="logoThumb" alt="Huidig logo" hidden>
+              <input id="s_logo" class="file-input" type="file" accept="image/*">
+              <button type="button" class="btn btn-ghost" id="logoRemove" hidden>Logo verwijderen</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="card">
+        <h2>Klant</h2>
+        <div class="fields">
+          <label class="full">Naam<input id="c_name" placeholder="Naam van de klant of het bedrijf"></label>
+          <label class="full">Adres<textarea id="c_addr" rows="2" placeholder="Straat en huisnummer&#10;Postcode en plaats"></textarea></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Factuur</h2>
+        <div class="fields">
+          <label>Factuurnummer<input id="i_num" class="num"></label>
+          <label>Factuurdatum<input id="i_date" type="date"></label>
+          <label>Betalen binnen<select id="i_term">
+            <option value="8">8 dagen</option>
+            <option value="14" selected>14 dagen</option>
+            <option value="30">30 dagen</option>
+          </select></label>
+          <label>Btw-tarief<select id="i_vat">
+            <option value="21">21% (standaard)</option>
+            <option value="9">9% (laag)</option>
+            <option value="0">0% (geen btw)</option>
+          </select></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Regels <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:400">· bedragen exclusief btw</span></h2>
+        <div class="lines" id="lines"></div>
+        <button type="button" class="btn btn-ghost" id="addLine">+ Regel toevoegen</button>
+        <label>Opmerking op de factuur <span class="hint">(optioneel)</span><textarea id="i_note" rows="2" placeholder="Bijvoorbeeld: werkzaamheden uitgevoerd op 12 en 13 november"></textarea></label>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="printBtn">Download / Print</button>
+        <button type="button" class="btn" id="newBtn">Nieuwe factuur</button>
+        <div class="sum"><small>Totaal incl. btw</small><strong id="sumTotal">€ 0,00</strong></div>
+      </div>
+      <div class="help" id="printHelp" hidden>
+        <p><strong>Zo sla je de factuur op als PDF</strong></p>
+        <p>Computer: druk op <kbd>Ctrl</kbd>+<kbd>P</kbd> (Mac: <kbd>⌘</kbd>+<kbd>P</kbd>) en kies bij printer <em>Opslaan als PDF</em>. Alleen de factuur komt op het papier.</p>
+        <p>Telefoon: open het menu van je browser, kies <em>Delen</em> of <em>Afdrukken</em> en daarna <em>Opslaan als PDF</em>.</p>
+      </div>
+    </section>
+
+    <section class="preview" aria-label="Voorbeeld van de factuur">
+      <p class="preview-label no-print">Voorbeeld</p>
+      <article class="paper" id="invoice"></article>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var K_COMPANY = "factuurmaker.bedrijf", K_DRAFT = "factuurmaker.concept";
+  function load(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  var $ = function (id) { return document.getElementById(id); };
+
+  var eur = new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" });
+  var dateFmt = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long", year: "numeric" });
+  function money(cents) { return eur.format(cents / 100); }
+  function todayISO() { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+  function parseISO(s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+  function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  // Accepteert 12,50 / 12.50 / 1.250,50 / 1250
+  function parseNum(s) {
+    s = String(s == null ? "" : s).trim().replace(/[€\s]/g, "");
+    if (!s) return 0;
+    if (s.indexOf(",") >= 0) s = s.replace(/\./g, "").replace(",", ".");
+    var n = parseFloat(s);
+    return isFinite(n) ? n : 0;
+  }
+  function nextNumber(num) {
+    var m = /^(.*?)(\d+)(\D*)$/.exec(num || "");
+    if (!m) return (num || "") + "-2";
+    var n = String(parseInt(m[2], 10) + 1);
+    while (n.length < m[2].length) n = "0" + n;
+    return m[1] + n + m[3];
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function or(v, ph) { return v && String(v).trim() ? esc(v) : '<span class="ph">' + esc(ph) + "</span>"; }
+
+  var company = load(K_COMPANY) || { name: "", addr: "", kvk: "", btw: "", iban: "", mail: "", tel: "", logo: "" };
+  var draft = load(K_DRAFT) || {
+    cName: "", cAddr: "", num: new Date().getFullYear() + "-001", date: todayISO(), term: "14", vat: "21", note: "",
+    lines: [{ desc: "", qty: "1", price: "" }]
+  };
+  if (!draft.lines || !draft.lines.length) draft.lines = [{ desc: "", qty: "1", price: "" }];
+
+  var companyMap = { s_name: "name", s_addr: "addr", s_kvk: "kvk", s_btw: "btw", s_iban: "iban", s_mail: "mail", s_tel: "tel" };
+  var draftMap = { c_name: "cName", c_addr: "cAddr", i_num: "num", i_date: "date", i_term: "term", i_vat: "vat", i_note: "note" };
+
+  function fillForm() {
+    Object.keys(companyMap).forEach(function (id) { $(id).value = company[companyMap[id]] || ""; });
+    Object.keys(draftMap).forEach(function (id) { $(id).value = draft[draftMap[id]] || ""; });
+    $("companyCard").open = !company.name;
+    updateLogoUI();
+    renderLines();
+  }
+
+  function updateLogoUI() {
+    var has = !!company.logo;
+    $("logoThumb").hidden = !has;
+    if (has) $("logoThumb").src = company.logo;
+    $("logoRemove").hidden = !has;
+  }
+
+  function lineTotal(l) { return Math.round(parseNum(l.qty) * parseNum(l.price) * 100); }
+
+  function renderLines() {
+    var box = $("lines");
+    box.innerHTML = "";
+    draft.lines.forEach(function (l, i) {
+      var row = document.createElement("div");
+      row.className = "line";
+      row.innerHTML =
+        '<label class="desc"><span class="lbl">Omschrijving</span><input id="l_desc_' + i + '" data-i="' + i + '" data-k="desc" placeholder="Wat heb je geleverd of gedaan?"></label>' +
+        '<label><span class="lbl">Aantal</span><input id="l_qty_' + i + '" class="num" data-i="' + i + '" data-k="qty" inputmode="decimal"></label>' +
+        '<label><span class="lbl">Prijs per stuk</span><input id="l_price_' + i + '" class="num" data-i="' + i + '" data-k="price" inputmode="decimal" placeholder="0,00"></label>' +
+        '<button type="button" class="icon-btn" data-del="' + i + '" aria-label="Regel ' + (i + 1) + ' verwijderen" title="Regel verwijderen">×</button>';
+      box.appendChild(row);
+      row.querySelector('[data-k="desc"]').value = l.desc || "";
+      row.querySelector('[data-k="qty"]').value = l.qty || "";
+      row.querySelector('[data-k="price"]').value = l.price || "";
+    });
+  }
+
+  function totals() {
+    var sub = draft.lines.reduce(function (s, l) { return s + lineTotal(l); }, 0);
+    var rate = parseInt(draft.vat, 10) || 0;
+    var vat = Math.round(sub * rate / 100);
+    return { sub: sub, rate: rate, vat: vat, total: sub + vat };
+  }
+
+  function renderInvoice() {
+    var t = totals();
+    var d = parseISO(draft.date);
+    var due = d ? addDays(d, parseInt(draft.term, 10) || 14) : null;
+    var rows = draft.lines.map(function (l) {
+      return "<tr><td>" + or(l.desc, "Omschrijving") + '</td><td class="r">' + esc(l.qty || "0") + '</td><td class="r">' + money(Math.round(parseNum(l.price) * 100)) + '</td><td class="r">' + money(lineTotal(l)) + "</td></tr>";
+    }).join("");
+    var ids = [];
+    if (company.kvk) ids.push("<span>KvK <b>" + esc(company.kvk) + "</b></span>");
+    if (company.btw) ids.push("<span>Btw <b>" + esc(company.btw) + "</b></span>");
+    if (company.mail) ids.push("<span>" + esc(company.mail) + "</span>");
+    if (company.tel) ids.push("<span>" + esc(company.tel) + "</span>");
+    var payText = company.iban
+      ? "Graag <strong>" + money(t.total) + "</strong> overmaken" + (due ? " vóór <strong>" + dateFmt.format(due) + "</strong>" : "") +
+        " op <span class=\"num\">" + esc(company.iban) + "</span> t.n.v. " + or(company.name, "jouw bedrijfsnaam") + ", onder vermelding van factuurnummer <span class=\"num\">" + esc(draft.num) + "</span>."
+      : '<span class="ph">Vul je IBAN in bij je bedrijfsgegevens, dan verschijnt hier de betaalinstructie.</span>';
+
+    $("invoice").innerHTML =
+      '<div class="inv-head">' +
+        '<div class="inv-from">' + (company.logo ? '<img src="' + company.logo + '" alt="">' : "") +
+          "<strong>" + or(company.name, "Jouw bedrijfsnaam") + "</strong>" + or(company.addr, "Jouw adres") + "</div>" +
+        '<div class="inv-title"><h2>FACTUUR</h2><dl class="inv-meta">' +
+          "<dt>Factuurnummer</dt><dd>" + or(draft.num, "—") + "</dd>" +
+          "<dt>Factuurdatum</dt><dd>" + (d ? dateFmt.format(d) : "—") + "</dd>" +
+          "<dt>Vervaldatum</dt><dd>" + (due ? dateFmt.format(due) : "—") + "</dd>" +
+        "</dl></div>" +
+      "</div>" +
+      '<div class="inv-to"><span class="lbl">Factuur aan</span><strong>' + or(draft.cName, "Naam klant") + "</strong>\n" + or(draft.cAddr, "Adres klant") + "</div>" +
+      '<div class="table-scroll"><table class="items"><thead><tr><th>Omschrijving</th><th class="r">Aantal</th><th class="r">Prijs</th><th class="r">Bedrag</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+      '<dl class="totals">' +
+        "<dt>Subtotaal</dt><dd>" + money(t.sub) + "</dd>" +
+        "<dt>Btw " + t.rate + "%</dt><dd>" + money(t.vat) + "</dd>" +
+        '<dt class="grand">Totaal</dt><dd class="grand">' + money(t.total) + "</dd>" +
+      "</dl>" +
+      (draft.note && draft.note.trim() ? '<div class="inv-note">' + esc(draft.note) + "</div>" : "") +
+      '<div class="inv-pay"><p>' + payText + "</p>" + (ids.length ? '<div class="inv-ids">' + ids.join("") + "</div>" : "") + "</div>";
+
+    $("sumTotal").textContent = money(t.total);
+    $("companySummary").firstChild.textContent = company.name ? "Afzender: " + company.name : "Jouw bedrijfsgegevens";
+  }
+
+  function persist() { save(K_COMPANY, company); save(K_DRAFT, draft); }
+
+  // Invoer
+  Object.keys(companyMap).forEach(function (id) {
+    $(id).addEventListener("input", function (e) { company[companyMap[id]] = e.target.value; persist(); renderInvoice(); });
+  });
+  Object.keys(draftMap).forEach(function (id) {
+    var ev = $(id).tagName === "SELECT" || $(id).type === "date" ? "change" : "input";
+    $(id).addEventListener(ev, function (e) { draft[draftMap[id]] = e.target.value; persist(); renderInvoice(); });
+    if (ev === "change") $(id).addEventListener("input", function (e) { draft[draftMap[id]] = e.target.value; persist(); renderInvoice(); });
+  });
+  $("lines").addEventListener("input", function (e) {
+    var el = e.target, i = el.getAttribute("data-i"), k = el.getAttribute("data-k");
+    if (i == null || !k) return;
+    draft.lines[+i][k] = el.value; persist(); renderInvoice();
+  });
+  $("lines").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-del]");
+    if (!b) return;
+    draft.lines.splice(+b.getAttribute("data-del"), 1);
+    if (!draft.lines.length) draft.lines.push({ desc: "", qty: "1", price: "" });
+    persist(); renderLines(); renderInvoice();
+  });
+  $("addLine").addEventListener("click", function () {
+    draft.lines.push({ desc: "", qty: "1", price: "" });
+    persist(); renderLines(); renderInvoice();
+    var inp = $("l_desc_" + (draft.lines.length - 1)); if (inp) inp.focus();
+  });
+
+  // Logo: verkleinen zodat het in de browseropslag past
+  $("s_logo").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, 600 / img.width, 240 / img.height);
+        var c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.width * scale)); c.height = Math.max(1, Math.round(img.height * scale));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        try { company.logo = c.toDataURL("image/png"); } catch (err) { company.logo = reader.result; }
+        persist(); updateLogoUI(); renderInvoice();
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(f);
+    e.target.value = "";
+  });
+  $("logoRemove").addEventListener("click", function () { company.logo = ""; persist(); updateLogoUI(); renderInvoice(); });
+
+  // Download / Print
+  $("printBtn").addEventListener("click", function () {
+    $("printHelp").hidden = false;
+    try { window.print(); } catch (e) {}
+    $("printHelp").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+
+  // Nieuwe factuur: nummer +1, klant en regels leeg. Tweede klik bevestigt.
+  var armed = null;
+  $("newBtn").addEventListener("click", function () {
+    var b = $("newBtn");
+    if (!armed) {
+      b.textContent = "Klik nogmaals: klant en regels wissen";
+      b.classList.add("btn-warn");
+      armed = setTimeout(function () { armed = null; b.textContent = "Nieuwe factuur"; b.classList.remove("btn-warn"); }, 4000);
+      return;
+    }
+    clearTimeout(armed); armed = null;
+    b.textContent = "Nieuwe factuur"; b.classList.remove("btn-warn");
+    draft = { cName: "", cAddr: "", num: nextNumber(draft.num), date: todayISO(), term: draft.term, vat: draft.vat, note: "", lines: [{ desc: "", qty: "1", price: "" }] };
+    persist(); fillForm(); renderInvoice();
+    $("c_name").focus();
+  });
+
+  fillForm();
+  renderInvoice();
+})();
+</script>
+
+</body>
+</html>
